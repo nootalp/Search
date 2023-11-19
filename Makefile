@@ -1,14 +1,15 @@
 OUTPUT = Search
 CC = gcc
-CFLAGS = -Wall -Os
+LIBRARIES = -lregex
+CFLAGS = -Wall -Ofast -march=native -pipe
 SRCDIR = src
 INCDIR = include
 OBJDIR = obj
 SOURCES = $(wildcard $(SRCDIR)/*.c)
 	# Fetch all source files. 
-OBJECTS = $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o, $(SOURCES))
-	# Pick up all file names in SOURCES and create objects and source files in the respective directories.
-	
+OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SOURCES))
+	# Pick up all file names in SOURCES and create objects and source files in the respective directories.	
+
 ifeq ($(OS), Windows_NT)
     EXECUTABLE_EXTENSION = .exe
     RM_OBJ = del /Q $(OBJDIR)\*.o
@@ -18,14 +19,14 @@ else
 endif
 
 all: $(OUTPUT)
-$(OUTPUT): $(OBJECTS)
-	@echo Serving $@ binary:
-	$(CC) $(CFLAGS) $(OBJECTS) -o $@$(EXECUTABLE_EXTENSION) -lregex
-
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	@echo Creating object: $@
-	$(CC) $(CFLAGS) -I $(INCDIR) -c $< -o $@
-		
+	$(CC) $(CFLAGS) -I $(INCDIR) -c $< -o $@ $(LIBRARIES)
+
+$(OUTPUT): $(OBJECTS)
+	@echo Serving $@ binary:
+	$(CC) $(CFLAGS) $(OBJECTS) -o $@$(EXECUTABLE_EXTENSION) $(LIBRARIES)
+
 clean:
 	$(RM_OBJ) $(OUTPUT)$(EXECUTABLE_EXTENSION)
 	

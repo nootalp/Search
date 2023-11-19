@@ -1,61 +1,73 @@
-#include "../include/includes.h"
+#include <stdio.h>
+#include <windows.h>
+#include <regex.h>
 
-void search_files(const char *dir, const char *pattern) {
-    regex_t regex;
-    if (regcomp(&regex, pattern, REG_EXTENDED)) {
-		fprintf(stderr, "Error to compile Regular Expression: %s\n", pattern);
-		return;
-    }
+void listFilesInDirectories(const char* directoryPath, const regex_t* compiledRegex);
 
-	#ifdef _WIN32
-		WIN32_FIND_DATAA data;
-		char tempPath[MAX_PATH];
-		snprintf(tempPath, sizeof(tempPath), "%s%s%s", dir, PATH_SEPARATOR, "*");
 
-		HANDLE handle = FindFirstFileA(tempPath, &data);
-		if (handle != INVALID_HANDLE_VALUE) {
-			do {
-				if (strcmp(data.cFileName, ".") && strcmp(data.cFileName, "..")) {
-					char entry[MAX_PATH];
-					snprintf(entry, sizeof(entry), "%s%s%s", dir, PATH_SEPARATOR, data.cFileName);
-
-					if (is_directory(entry)) {
-						search_files(entry, pattern);
-					} else if (!regexec(&regex, data.cFileName, 0, NULL, 0)) {
-						printf("%s\n", entry);
-					}
-				}
-			} while (FindNextFileA(handle, &data));
-			FindClose(handle);
-		}
-	#else
-	    DIR *dp = opendir(dir);
-	    if (!dp) return;
-	    struct dirent *entry;
-
-	    while ((entry = readdir(dp))) {
-	        if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..")) {
-	            char path[MAX_PATH];
-	            snprintf(path, sizeof(path), "%s%s%s", dir, PATH_SEPARATOR, entry->d_name);
-
-	            if (is_directory(path)) {
-	                search_files(path, pattern);
-	            } else if (!regexec(&regex, entry->d_name, 0, NULL, 0)) {
-	                printf("%s%s%s\n", dir, PATH_SEPARATOR, entry->d_name);
-	            }
-	        }
-	    }
-	    closedir(dp);
-	#endif
-		regfree(&regex);
+boolean isDirectory(const WIN32_FIND_DATA* fileData) {
+    return (fileData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
 }
 
-int main(int argc, char *argv[]) {
 
-	if (argc < 3) {
-        fprintf(stderr, "Usage: %s [DIRECTORY] [REGEX]\n", argv[0]);
-        return 1;
+void displayFileInfo(const char* directoryPath, const regex_t* compiledRegex,  const WIN32_FIND_DATA* fileData) {
+	char fullPath[MAX_PATH];
+
+    snprintf(fullPath, MAX_PATH, "%s\\%s", directoryPath, fileData->cFileName);
+
+    TCHAR buffer[MAX_PATH];
+    DWORD retval = GetFullPathName(fullPath, MAX_PATH, buffer, NULL);
+
+    if (retval != 0) {
+		if (regexec(compiledRegex, fileData->cFileName, 0, NULL, 0) == 0)
+			printf("%s\n", buffer);
+	}
+    else printf("Error to get path.\n");
+}
+
+
+void listSubDirectories(const char* directoryPath, const WIN32_FIND_DATA* fileData,  const regex_t* compiledRegex) {
+    char subDirPath[MAX_PATH];
+    snprintf(subDirPath, MAX_PATH, "%s\\%s", directoryPath, fileData->cFileName);
+    listFilesInDirectories(subDirPath, compiledRegex);
+}
+
+
+void listFilesInDirectories(const char* directoryPath, const regex_t* compiledRegex) {
+    char searchPath[MAX_PATH];
+    WIN32_FIND_DATA fileData;
+	
+    snprintf(searchPath, MAX_PATH, "%s\\*", directoryPath);
+    HANDLE hFind = FindFirstFile(searchPath, &fileData);
+
+    while (FindNextFile(hFind, &fileData)) {
+    	if (strcmp(fileData.cFileName, ".") && strcmp(fileData.cFileName, "..")) {
+    		displayFileInfo(directoryPath, compiledRegex, &fileData);
+    		if (isDirectory(&fileData))
+				listSubDirectories(directoryPath, &fileData, compiledRegex);
+    	}
     }
-    search_files(argv[1], argv[2]);
-    return 0;
+    FindClose(hFind);
+}
+
+
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        printf("Usage: %s [DIRECTORY] [REGEX]\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    const char* directoryPath = argv[1];
+    const char* regexPattern = 	argv[2];
+
+	regex_t compiledRegex;
+    if (regcomp(&compiledRegex, regexPattern, REG_EXTENDED) != 0) {
+        printf("Error compiling regular expression.\n");
+        return EXIT_FAILURE;
+    }
+
+    listFilesInDirectories(directoryPath, &compiledRegex);
+    regfree(&compiledRegex);
+
+    return EXIT_SUCCESS;
 }
