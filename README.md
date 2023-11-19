@@ -36,10 +36,10 @@ This command will compile the project and generate the executable file.
 
 This will remove all compiled object files (\*.o) and the Search executable.
 
-5. To run the compiled program, use the following command:
+5. To run the compiled program, use the following command example:
 
 	```
-	./Search
+	.\Search.exe C: \.pdf$ | foreach { mv $_ . }
 	```
 #   S e a r c h 
  
